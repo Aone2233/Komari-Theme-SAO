@@ -219,7 +219,7 @@ function MiniFlowRow({
   );
 }
 
-// 左栏集中显示实时速率，右栏集中显示累计流量；每栏均按上行、下行排列。
+// 左栏显示实时速率，右栏显示 Agent 周期累计；缺失值不能当作零。
 function MiniFlow({
   node,
   upRate,
@@ -247,16 +247,17 @@ function MiniFlow({
           title="实时下行"
         />
       </div>
-      <div className="mini-node-flow-group" aria-label="累计流量">
+      <div className="mini-node-flow-group" aria-label="Agent 周期累计（非供应商账单）">
+        <span className="mini-node-flow-caption">Agent 周期（非账单）</span>
         <MiniFlowRow
           icon={<ArrowUp size={12} strokeWidth={2.2} />}
-          value={formatBytes(node.trafficUp)}
-          title="累计上行"
+          value={node.cycleUp == null ? "未知" : formatBytes(node.cycleUp)}
+          title={`Agent 周期累计上行${node.online === false ? "（离线为最后上报）" : ""}`}
         />
         <MiniFlowRow
           icon={<ArrowDown size={12} strokeWidth={2.2} />}
-          value={formatBytes(node.trafficDown)}
-          title="累计下行"
+          value={node.cycleDown == null ? "未知" : formatBytes(node.cycleDown)}
+          title={`Agent 周期累计下行${node.online === false ? "（离线为最后上报）" : ""}`}
         />
       </div>
     </div>

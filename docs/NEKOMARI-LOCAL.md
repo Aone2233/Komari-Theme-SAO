@@ -8,8 +8,9 @@ an upstream `SAO` market install from replacing the active local variant.
 
 The quota and instance cycle fields use quality-marked Agent cycle counters,
 not kernel boot totals. Unknown quality and invalid or missing required
-directions remain unknown; a valid zero remains zero. Boot totals are labelled
-separately. The Agent's reset day, provider accounting rules and time zone can
+directions remain unknown; a valid zero remains zero. The mini layout's
+directional figures are also explicitly labelled Agent cycle totals; large and
+compact cards label boot totals separately. The Agent's reset day, provider accounting rules and time zone can
 differ: these numbers are not asserted to match a provider bill. This variant
 does not change an Agent, reset a ledger or modify any node.
 
