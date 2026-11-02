@@ -595,7 +595,7 @@ function CompactTrafficBar({
   // 用量非零但极小时,下限填充"一段的 TRAFFIC_SLIVER_RATIO"(段内一道细边),而不是整段——
   // 否则低用量节点(如 0.01%)会被夸张成快 5.6%。fraction 为 0 时保持全灭。
   const fillFraction =
-    traffic.fraction > 0
+    traffic.fraction != null && traffic.fraction > 0
       ? Math.max(clamp01(traffic.fraction), TRAFFIC_SLIVER_RATIO / 18)
       : 0;
   const style = {

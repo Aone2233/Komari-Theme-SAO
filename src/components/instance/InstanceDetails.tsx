@@ -49,8 +49,8 @@ export function InstanceDetails({
   // 对非 "sum" 节点直接把上下行相加是错的。
   const trafficUsage = resolveTrafficUsage(
     meta.traffic_limit_type,
-    metrics.trafficUp,
-    metrics.trafficDown,
+    metrics.cycleUp,
+    metrics.cycleDown,
     meta.traffic_limit,
   );
   const lastUpdated =
@@ -139,14 +139,14 @@ export function InstanceDetails({
             value={formatTodayPeakValue(todayStat, trafficQuery.isPending)}
           />
           <div className="instance-info-item is-stack">
-            <span className="instance-info-label">总流量</span>
+            <span className="instance-info-label" title="Agent 周期累计，可能与供应商账单不同">周期流量</span>
             <div className="instance-info-traffic">
-              <span className="instance-info-value">{`↑ ${formatBytes(metrics.trafficUp)} · ↓ ${formatBytes(metrics.trafficDown)}`}</span>
+              <span className="instance-info-value">{`↑ ${metrics.cycleUp == null ? "未知" : formatBytes(metrics.cycleUp)} · ↓ ${metrics.cycleDown == null ? "未知" : formatBytes(metrics.cycleDown)}`}</span>
               <div
-                className={`instance-progress-track${trafficUsage.unlimited ? " is-unlimited" : ""}`}
+                className={`instance-progress-track${!trafficUsage || trafficUsage.unlimited ? " is-unlimited" : ""}`}
                 aria-hidden
               >
-                {!trafficUsage.unlimited && (
+                {trafficUsage && !trafficUsage.unlimited && (
                   <span
                     className="instance-progress-fill"
                     style={{ width: `${trafficUsage.fraction * 100}%` }}
@@ -154,7 +154,9 @@ export function InstanceDetails({
                 )}
               </div>
               <span className="instance-info-note">
-                {trafficUsage.unlimited
+                {!trafficUsage
+                  ? `未知 / ${meta.traffic_limit > 0 ? formatBytes(meta.traffic_limit) : "∞"}`
+                  : trafficUsage.unlimited
                   ? `${formatBytes(trafficUsage.used)} / ∞`
                   : `${formatBytes(trafficUsage.used)} / ${formatBytes(trafficUsage.limit)}`}
               </span>

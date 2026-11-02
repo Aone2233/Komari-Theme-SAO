@@ -261,7 +261,7 @@ const NodeRow = memo(function NodeRow({ uuid }: { uuid: string }) {
   );
   const listPingStatus = formatListPingStatus(ping.lastValue, listPingState);
   const detailLabels = nodeDetailLinkLabels(node.name, osName);
-  const usedPct = `${Math.round(clamp01(traffic.fraction) * 100)}%`;
+  const usedPct = traffic.fraction == null ? "未知" : `${Math.round(clamp01(traffic.fraction) * 100)}%`;
   const rowLabel = [
     node.name,
     `系统 ${formatOsLabel(osName, node.os)}`,
@@ -362,7 +362,7 @@ const NodeRow = memo(function NodeRow({ uuid }: { uuid: string }) {
 
       <div
         className="node-list-cell col-traffic"
-        title={`剩余 ${traffic.remainingLabel} · ${traffic.detail}`}
+        title={`${traffic.typeLabel} · 剩余 ${traffic.remainingLabel} · ${traffic.detail}`}
       >
         <div className="node-list-traffic-rows">
           <StackLine icon={<ArrowUp size={11} strokeWidth={2.1} />} value={formatBytes(node.trafficUp)} />

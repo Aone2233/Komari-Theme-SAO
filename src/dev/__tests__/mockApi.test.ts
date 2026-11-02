@@ -51,5 +51,7 @@ describe("installDevMockApi with nodes count query parameter", () => {
     const sampleStatus = statusData.result[nodes[0].uuid];
     expect(sampleStatus).toBeDefined();
     expect(typeof sampleStatus.online).toBe("boolean");
+    expect(sampleStatus.quality.traffic_cycle).toBe("ok");
+    expect(sampleStatus.traffic_up).toBe(sampleStatus.net_total_up / 2);
   });
 });

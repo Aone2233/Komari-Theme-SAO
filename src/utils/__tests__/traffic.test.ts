@@ -30,6 +30,18 @@ describe("computeTrafficUsed", () => {
 });
 
 describe("resolveTrafficUsage", () => {
+  it("preserves measured zero and requires only directions used by the rule", () => {
+    expect(resolveTrafficUsage("sum", 0, 0, 100)?.used).toBe(0);
+    expect(resolveTrafficUsage("up", 20, null, 100)?.used).toBe(20);
+    expect(resolveTrafficUsage("down", null, 30, 100)?.used).toBe(30);
+    expect(resolveTrafficUsage("sum", 20, null, 100)).toBeNull();
+    expect(resolveTrafficUsage("max", null, 30, 100)).toBeNull();
+    expect(resolveTrafficUsage("min", 20, null, 100)).toBeNull();
+    expect(resolveTrafficUsage(undefined, 20, null, 100)).toBeNull();
+    expect(resolveTrafficUsage("sum", Number.MAX_SAFE_INTEGER, 1, 100)).toBeNull();
+    expect(resolveTrafficUsage("sum", -1, 20, 100)).toBeNull();
+    expect(resolveTrafficUsage("sum", Number.NaN, 20, 100)).toBeNull();
+  });
   it("derives used/remaining/fraction from a limit", () => {
     const usage = resolveTrafficUsage("sum", 30, 70, 200);
     expect(usage.used).toBe(100);

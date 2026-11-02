@@ -138,7 +138,7 @@ export const NodeCard = memo(function NodeCard({
           />
 
           <NodeTrafficQuota
-            litCount={trafficQuotaLitCount(traffic.fraction)}
+            litCount={traffic.fraction == null ? 0 : trafficQuotaLitCount(traffic.fraction)}
             remainingLabel={traffic.remainingLabel}
             detail={traffic.detail}
             typeLabel={traffic.typeLabel}
