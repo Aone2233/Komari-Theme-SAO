@@ -15,10 +15,14 @@ accounting rules and time zone can differ: these numbers are not asserted to
 match a provider bill. This variant does not change an Agent, reset a ledger
 or modify any node.
 
-Known separate issue: the upstream "today traffic" metrics path does not check
-the backend's series semantics. A legacy `billing_cycle_cumulative` fallback
-must not be interpreted as a daily interval sum; investigate and fix that path
-separately. This release makes no claim about today-history correctness.
+The today-traffic path now validates backend series semantics before summing:
+a direction only counts when the backend answers exactly one
+`interval_delta_v2` stream whose points are complete, non-negative integer
+per-interval amounts. `billing_cycle_cumulative` fallbacks, duplicate streams,
+partial or invalid points remain unknown instead of zero, and boundary repair
+never merges cumulative counters into validated interval buckets. Totals are
+labelled as sampled, possibly-incomplete interval sums and are not asserted to
+match a provider bill.
 
 ## Build and upgrade
 
