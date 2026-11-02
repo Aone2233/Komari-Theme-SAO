@@ -124,6 +124,8 @@ function emptyMetrics(info: NodeInfo, online: boolean | null): NodeMetrics {
     netDown: 0,
     trafficUp: 0,
     trafficDown: 0,
+    cycleUp: null,
+    cycleDown: null,
     uptime: 0,
     load1: 0,
     load5: 0,
@@ -198,6 +200,8 @@ function mergeRealtime(
     netDown: rt.network?.down ?? 0,
     trafficUp: trafficTotals.up,
     trafficDown: trafficTotals.down,
+    cycleUp: metrics.cycleUp,
+    cycleDown: metrics.cycleDown,
     uptime: rt.uptime ?? 0,
     load1: rt.load?.load1 ?? 0,
     load5: rt.load?.load5 ?? 0,
@@ -225,6 +229,8 @@ function shallowEqualMetrics(a: NodeMetrics, b: NodeMetrics) {
     a.netDown === b.netDown &&
     a.trafficUp === b.trafficUp &&
     a.trafficDown === b.trafficDown &&
+    a.cycleUp === b.cycleUp &&
+    a.cycleDown === b.cycleDown &&
     a.uptime === b.uptime &&
     a.load1 === b.load1 &&
     a.load5 === b.load5 &&
@@ -491,6 +497,17 @@ function asRecord(value: unknown): RealtimePayload {
     : {};
 }
 
+// Nekomari explicitly marks cycle quality. Never substitute kernel totals for it.
+export function cycleTrafficFromLatest(raw: unknown): { up: number | null; down: number | null } {
+  const payload = asRecord(raw);
+  const quality = asRecord(payload.quality);
+  const value = (input: unknown) =>
+    typeof input === "number" && Number.isSafeInteger(input) && input >= 0 ? input : null;
+  return quality.traffic_cycle === "ok"
+    ? { up: value(payload.traffic_up), down: value(payload.traffic_down) }
+    : { up: null, down: null };
+}
+
 function asBoolean(value: unknown, fallback: boolean): boolean {
   if (typeof value === "boolean") return value;
   if (typeof value === "number") return value !== 0;
@@ -636,6 +653,9 @@ function applyLatestStatus(records: Record<string, unknown>) {
     const merged = realtime
       ? mergeRealtime(prev, realtime, online)
       : { ...prev, online };
+    const cycle = cycleTrafficFromLatest(rawRecord);
+    merged.cycleUp = cycle.up;
+    merged.cycleDown = cycle.down;
 
     if (!shallowEqualMetrics(prev, merged)) {
       if (nextMetricsByUuid === state.metricsByUuid) {
@@ -722,19 +742,23 @@ function applyNodeSync(
     const merged = isUnchanged ? prev : { ...info };
     metaByUuid[info.uuid] = merged;
     const previousMetrics = state.metricsByUuid[info.uuid];
+    const base = previousMetrics
+      ? alignEmptyMetricsTotals(previousMetrics, info)
+      : emptyMetrics(info, null);
+    const rawRecord = initialStatusRecords?.[info.uuid];
     let nextMetrics: NodeMetrics;
-    if (previousMetrics) {
-      nextMetrics = alignEmptyMetricsTotals(previousMetrics, info);
-    } else {
-      const base = emptyMetrics(info, null);
-      const rawRecord = initialStatusRecords?.[info.uuid];
-      if (rawRecord != null) {
-        const online = resolveOnline(rawRecord);
-        const realtime = normalizeRealtime(rawRecord, info, base);
-        nextMetrics = realtime ? mergeRealtime(base, realtime, online) : { ...base, online };
-      } else {
-        nextMetrics = base;
+    if (initialStatusRecords != null) {
+      const online = resolveOnline(rawRecord);
+      const realtime = normalizeRealtime(rawRecord, info, base);
+      nextMetrics = realtime ? mergeRealtime(base, realtime, online) : { ...base, online };
+      const cycle = cycleTrafficFromLatest(rawRecord);
+      nextMetrics.cycleUp = cycle.up;
+      nextMetrics.cycleDown = cycle.down;
+      if (previousMetrics && shallowEqualMetrics(previousMetrics, nextMetrics)) {
+        nextMetrics = previousMetrics;
       }
+    } else {
+      nextMetrics = base;
     }
     metricsByUuid[info.uuid] = nextMetrics;
     if (!isUnchanged) {

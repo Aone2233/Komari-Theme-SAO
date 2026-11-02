@@ -235,6 +235,12 @@
   gap: 4px;
 }
 
+.mini-node-flow-caption {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
 .mini-node-flow-row {
   display: flex;
   min-width: 0;

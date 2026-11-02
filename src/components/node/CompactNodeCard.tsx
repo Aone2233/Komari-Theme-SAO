@@ -122,6 +122,7 @@ function CompactInfoTile({
       className="compact-node-info-tile"
       style={style}
       aria-label={label}
+      title={label}
     >
       <span className="compact-node-info-content">{children}</span>
     </div>
@@ -510,7 +511,7 @@ function CompactNodeInfoStrip({
       </CompactInfoTile>
       {showTrafficTotal && (
         <CompactInfoTile
-          label="累计流量"
+          label="开机累计流量"
           color="var(--text-primary)"
         >
           <CompactInfoRow
@@ -595,7 +596,7 @@ function CompactTrafficBar({
   // 用量非零但极小时,下限填充"一段的 TRAFFIC_SLIVER_RATIO"(段内一道细边),而不是整段——
   // 否则低用量节点(如 0.01%)会被夸张成快 5.6%。fraction 为 0 时保持全灭。
   const fillFraction =
-    traffic.fraction > 0
+    traffic.fraction != null && traffic.fraction > 0
       ? Math.max(clamp01(traffic.fraction), TRAFFIC_SLIVER_RATIO / 18)
       : 0;
   const style = {
@@ -615,7 +616,7 @@ function CompactTrafficBar({
           <>
             <span className="compact-node-traffic-label">
               <Database size={12} strokeWidth={2.1} />
-              <span>流量</span>
+              <span>周期</span>
             </span>
             <div className="compact-node-gauge-track" aria-hidden />
             <span className="compact-node-traffic-uptime">{uptimeLabel}</span>
@@ -626,7 +627,7 @@ function CompactTrafficBar({
             <div className="compact-node-traffic-head">
               <span className="compact-node-traffic-label">
                 <Database size={12} strokeWidth={2.1} />
-                <span>流量</span>
+                <span>周期</span>
               </span>
               <span className="compact-node-traffic-value">{traffic.detail}</span>
             </div>

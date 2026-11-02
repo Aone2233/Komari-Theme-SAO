@@ -1,6 +1,6 @@
 // 与后端 computeUsedByType 保持一致，空或未知类型按 max 处理。
 export interface TrafficDisplay {
-  fraction: number;
+  fraction: number | null;
   color: string;
   remainingLabel: string;
   detail: string;
@@ -50,8 +50,24 @@ export function resolveTrafficUsage(
   up: number,
   down: number,
   limit: number,
-): TrafficUsage {
-  const used = computeTrafficUsed(type, up, down);
+): TrafficUsage;
+export function resolveTrafficUsage(
+  type: string | null | undefined,
+  up: number | null,
+  down: number | null,
+  limit: number,
+): TrafficUsage | null;
+export function resolveTrafficUsage(
+  type: string | null | undefined,
+  up: number | null,
+  down: number | null,
+  limit: number,
+): TrafficUsage | null {
+  const mode = (type ?? "").trim().toLowerCase();
+  const valid = (value: number | null) => value != null && Number.isSafeInteger(value) && value >= 0;
+  if ((mode !== "down" && !valid(up)) || (mode !== "up" && !valid(down))) return null;
+  const used = computeTrafficUsed(type, up ?? 0, down ?? 0);
+  if (!Number.isSafeInteger(used) || used < 0) return null;
   const unlimited = !(limit > 0);
   const remaining = unlimited ? 0 : Math.max(0, limit - used);
   const fraction = unlimited ? 0 : Math.max(0, Math.min(1, used / limit));

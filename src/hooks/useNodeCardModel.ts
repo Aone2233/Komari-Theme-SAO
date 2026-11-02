@@ -239,23 +239,25 @@ export function useNodeCardModel(
     // 在这里一次性算出剩余和使用占比，让两种卡片布局共用这套计算。
     const trafficUsage = resolveTrafficUsage(
       meta.traffic_limit_type,
-      metrics.trafficUp,
-      metrics.trafficDown,
+      metrics.cycleUp,
+      metrics.cycleDown,
       meta.traffic_limit,
     );
-    const trafficUsedLabel = formatBytes(trafficUsage.used);
+    const trafficUsedLabel = trafficUsage ? formatBytes(trafficUsage.used) : "未知";
     // 不限量时渲染成 ∞，让剩余值和"已用/上限"那行与限量情况保持一致
     //（"剩余 ∞" + "2.73 GB / ∞"）。
-    const trafficLimitLabel = trafficUsage.unlimited ? "∞" : formatBytes(trafficUsage.limit);
-    const trafficColor = trafficUsage.unlimited
+    const trafficLimitLabel = !(meta.traffic_limit > 0) ? "∞" : formatBytes(meta.traffic_limit);
+    const trafficColor = !trafficUsage
+      ? "var(--text-muted)"
+      : trafficUsage.unlimited
       ? "var(--status-success)"
       : trafficUsageColor(trafficUsage.fraction);
     const traffic: TrafficDisplay = {
-      fraction: trafficUsage.fraction,
+      fraction: trafficUsage?.fraction ?? null,
       color: trafficColor,
-      remainingLabel: trafficUsage.unlimited ? "∞" : formatBytes(trafficUsage.remaining),
+      remainingLabel: !trafficUsage ? "未知" : trafficUsage.unlimited ? "∞" : formatBytes(trafficUsage.remaining),
       detail: `${trafficUsedLabel} / ${trafficLimitLabel}`,
-      typeLabel: trafficTypeLabel(meta.traffic_limit_type),
+      typeLabel: `Agent 周期累计（非供应商账单${metrics.online === false ? "，离线为最后上报" : ""}） · ${trafficTypeLabel(meta.traffic_limit_type)}`,
     };
 
     return {
