@@ -122,10 +122,10 @@ export const OverviewStatCard: React.FC<OverviewStatCardProps> = ({
   const [diskUsedValue, diskUsedUnit] = formatBytes(totalDiskUsed).split(" ");
   const diskPct = totalDiskTotal > 0 ? (totalDiskUsed / totalDiskTotal) * 100 : 32.3;
 
-  const todayTrafficBytes = todayTrafficTotal ?? (overview ? 0 : 46278836224); // 43.1 GB
+  const todayTrafficBytes = todayTrafficTotal === undefined && !overview ? 46278836224 : todayTrafficTotal;
   const [trafficValue, trafficUnit] =
-    todayTrafficLoading && todayTrafficTotal === null
-      ? ["—", ""]
+    todayTrafficBytes == null
+      ? ["未知", ""]
       : formatBytes(todayTrafficBytes).split(" ");
 
   const totalSwapUsed = overview?.totalSwapUsed ?? 7516192768; // 7.00 GB
@@ -285,9 +285,9 @@ export const OverviewStatCard: React.FC<OverviewStatCardProps> = ({
           <div className="mao-stat-footer">
             <span
               className="mao-stat-caption"
-              title={`今日全节点出入站累计 ${formatBytes(todayTrafficBytes)}`}
+              title={todayTrafficBytes == null ? "部分节点或方向缺少可用数据" : "采样区间累计，可能不完整；非供应商账单"}
             >
-              全节点出入站累计
+              {todayTrafficBytes == null ? "存在未知节点或方向" : "采样区间累计 · 可能不完整"}
             </span>
           </div>
         </div>

@@ -9,6 +9,7 @@ const stat: TodayTrafficStat = {
   uuid: "node-a",
   trafficUp: 1024,
   trafficDown: 2048,
+  trafficBasis: "validated-intervals",
   peakUp: 0,
   peakUpAt: null,
   peakDown: 0,

@@ -266,6 +266,88 @@ describe("metric boundary repair in the API adapter", () => {
     );
   });
 
+  it("fills today-traffic boundary gaps only with interval-delta raw series", async () => {
+    const aggregate = {
+      start: "2026-07-15T00:00:00Z",
+      end: "2026-07-15T03:45:00Z",
+      series: [
+        {
+          metric_key: "traffic.up",
+          entity_id: "node-a",
+          interval_seconds: 300,
+          semantics: "interval_delta_v2",
+          quality: "validated_intervals_only;legacy_history_unknown",
+          points: [
+            { time: "2026-07-15T03:25:00Z", value: 100, count: 1 },
+            { time: "2026-07-15T03:30:00Z", value: null, count: 0 },
+            { time: "2026-07-15T03:35:00Z", value: 40, count: 1 },
+          ],
+        },
+      ],
+    };
+    const range = {
+      startMs: Date.parse("2026-07-15T00:00:00Z"),
+      endMs: Date.parse("2026-07-15T04:00:00Z"),
+    };
+    const gapPoint = (series: Array<{ time: string; value: number | null; count: number }>) =>
+      series.find((point) => point.time === "2026-07-15T03:30:00Z");
+
+    rpcCallMock.mockImplementation((method: string, params: Record<string, unknown>) => {
+      if (method !== "public:queryMetrics") {
+        return Promise.reject(new Error(`Unexpected RPC method: ${method}`));
+      }
+      if (params.downsample === false) {
+        return Promise.resolve({
+          start: "2026-07-15T03:25:00Z",
+          end: "2026-07-15T03:31:00Z",
+          series: [
+            {
+              metric_key: "traffic.up",
+              entity_id: "node-a",
+              semantics: "billing_cycle_cumulative",
+              points: [
+                { time: "2026-07-15T03:30:00Z", value: 12, count: 1 },
+                { time: "2026-07-15T03:31:00Z", value: 8, count: 1 },
+              ],
+            },
+          ],
+        });
+      }
+      return Promise.resolve(aggregate);
+    });
+
+    const cumulative = await getTodayTrafficMetrics(["node-a"], range.startMs, range.endMs);
+    expect(gapPoint(cumulative.series[0].points)).toMatchObject({ value: null, count: 0 });
+
+    rpcCallMock.mockReset();
+    rpcCallMock.mockImplementation((method: string, params: Record<string, unknown>) => {
+      if (method !== "public:queryMetrics") {
+        return Promise.reject(new Error(`Unexpected RPC method: ${method}`));
+      }
+      if (params.downsample === false) {
+        return Promise.resolve({
+          start: "2026-07-15T03:25:00Z",
+          end: "2026-07-15T03:31:00Z",
+          series: [
+            {
+              metric_key: "traffic.up",
+              entity_id: "node-a",
+              semantics: "interval_delta_v2",
+              points: [
+                { time: "2026-07-15T03:30:00Z", value: 12, count: 1 },
+                { time: "2026-07-15T03:31:00Z", value: 8, count: 1 },
+              ],
+            },
+          ],
+        });
+      }
+      return Promise.resolve(aggregate);
+    });
+
+    const combined = await getTodayTrafficMetrics(["node-a"], range.startMs, range.endMs);
+    expect(gapPoint(combined.series[0].points)).toMatchObject({ value: 20, count: 2 });
+  });
+
   it("does not send removed Komari 1.3.0 total metrics in load queries", async () => {
     rpcCallMock.mockImplementation(() => {
       return Promise.resolve({

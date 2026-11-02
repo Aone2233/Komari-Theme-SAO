@@ -2,13 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpcCallMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/services/rpc2Client", () => ({
-  getRpc2Client: () => ({ call: rpcCallMock }),
-}));
+vi.mock("@/services/rpc2Client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/rpc2Client")>();
+  return { ...actual, getRpc2Client: () => ({ call: rpcCallMock }) };
+});
 
 import { getMe, getNodes, getPublic } from "@/services/api";
 
-type EarlyDataMap = Record<string, Promise<unknown> | null>;
+type EarlyDataMap = Record<
+  string,
+  Promise<unknown> | { startMs: number; promise: Promise<unknown> } | null
+>;
 function getEarlyWindow(): { __EARLY_DATA__?: EarlyDataMap } {
   return window as unknown as { __EARLY_DATA__?: EarlyDataMap };
 }
@@ -97,6 +101,40 @@ describe("Early Data prefetch consumption", () => {
 
   it("consumes early today_traffic metrics without network roundtrip", async () => {
     getEarlyWindow().__EARLY_DATA__ = {
+      today_traffic: {
+        startMs: 1730419200000,
+        promise: Promise.resolve({
+          jsonrpc: "2.0",
+          id: 1,
+          result: {
+            start: "2026-11-01T00:00:00Z",
+            end: "2026-11-01T02:00:00Z",
+            count: 1,
+            default_points: 500,
+            series: [
+              {
+                metric_key: "traffic.up",
+                entity_id: "node-1",
+                type: "gauge",
+                unit: "bytes",
+                points: [{ time: "2026-11-01T01:00:00Z", value: 1048576, count: 1 }],
+              },
+            ],
+          },
+        }),
+      },
+    };
+
+    const { getTodayTrafficMetrics } = await import("@/services/api");
+    const result = await getTodayTrafficMetrics(["node-1"], 1730419200000, 1730426400000);
+    expect(result.series).toHaveLength(1);
+    expect(result.series[0].client).toBe("node-1");
+    expect(getEarlyWindow().__EARLY_DATA__?.today_traffic).toBeNull();
+    expect(rpcCallMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores legacy plain-Promise today_traffic and re-queries over the network", async () => {
+    getEarlyWindow().__EARLY_DATA__ = {
       today_traffic: Promise.resolve({
         jsonrpc: "2.0",
         id: 1,
@@ -117,12 +155,29 @@ describe("Early Data prefetch consumption", () => {
         },
       }),
     };
+    rpcCallMock.mockResolvedValue({
+      start: "2026-11-01T00:00:00Z",
+      end: "2026-11-01T02:00:00Z",
+      count: 1,
+      default_points: 500,
+      series: [
+        {
+          metric_key: "traffic.up",
+          entity_id: "node-1",
+          type: "gauge",
+          unit: "bytes",
+          semantics: "interval_delta_v2",
+          points: [{ time: "2026-11-01T01:00:00Z", value: 1048576, count: 1 }],
+        },
+      ],
+    });
 
     const { getTodayTrafficMetrics } = await import("@/services/api");
     const result = await getTodayTrafficMetrics(["node-1"], 1730419200000, 1730426400000);
     expect(result.series).toHaveLength(1);
     expect(result.series[0].client).toBe("node-1");
-    expect(getEarlyWindow().__EARLY_DATA__?.today_traffic).toBeNull();
-    expect(rpcCallMock).not.toHaveBeenCalled();
+    expect(rpcCallMock).toHaveBeenCalled();
+    // 旧格式无法与页面启动时刻对齐，保持原样并走网络重查，不消费也不清空。
+    expect(getEarlyWindow().__EARLY_DATA__?.today_traffic).toBeInstanceOf(Promise);
   });
 });

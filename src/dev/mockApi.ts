@@ -404,10 +404,23 @@ function trafficMetricPayload(params: {
     if (index < 0) return [];
     const profile = getNodeStatusProfile(index, nodes[index]);
     if (!profile[9]) return [];
+    // frankfurt-db-01 模拟旧后端:只有计费周期累计计数器,今日流量方向应显示未知。
+    const legacyCumulative = uuid === "frankfurt-db-01";
     return metricKeys.map((metricKey) => ({
       metric_key: metricKey,
       entity_id: uuid,
       interval_seconds: intervalMs / 1000,
+      ...(metricKey === "traffic.up" || metricKey === "traffic.down"
+        ? legacyCumulative
+          ? {
+              semantics: "billing_cycle_cumulative",
+              quality: "legacy_history_unknown;cumulative_counter_only",
+            }
+          : {
+              semantics: "interval_delta_v2",
+              quality: "validated_intervals_only;legacy_history_unknown",
+            }
+        : {}),
       points: Array.from({ length: pointCount }, (_, pointIndex) => {
         const phase = pointIndex / 9 + index * 0.8;
         const time = new Date(start + pointIndex * intervalMs).toISOString();
@@ -419,7 +432,11 @@ function trafficMetricPayload(params: {
               : metricKey === "net.out.rate"
                 ? profile[5] * (0.62 + Math.sin(phase) * 0.34)
                 : profile[6] * (0.66 + Math.cos(phase) * 0.3);
-        return { time, value: Math.max(0, value), count: 1 };
+        // 字节量必须是整数(与真实后端一致),速率保持原始浮点。
+        const rounded = metricKey === "traffic.up" || metricKey === "traffic.down"
+          ? Math.round(value)
+          : value;
+        return { time, value: Math.max(0, rounded), count: 1 };
       }),
     }));
   });

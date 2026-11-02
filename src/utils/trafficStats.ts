@@ -1,4 +1,5 @@
 import type { LoadRecord } from "@/types/komari";
+import { formatBytes } from "@/utils/format";
 
 export const TRAFFIC_UP_METRIC = "traffic.up";
 export const TRAFFIC_DOWN_METRIC = "traffic.down";
@@ -23,13 +24,16 @@ export interface TrafficMetricSeries {
   metricKey: string;
   client: string;
   intervalSeconds?: number;
+  semantics?: string;
+  quality?: string;
   points: Array<{ time: string; value: number | null; count: number }>;
 }
 
 export interface TodayTrafficStat {
   uuid: string;
-  trafficUp: number;
-  trafficDown: number;
+  trafficUp: number | null;
+  trafficDown: number | null;
+  trafficBasis: "validated-intervals" | "records-estimate" | "unavailable";
   peakUp: number;
   peakUpAt: number | null;
   peakDown: number;
@@ -47,8 +51,9 @@ export interface TodayTrafficSample {
 function emptyStat(uuid: string): TodayTrafficStat {
   return {
     uuid,
-    trafficUp: 0,
-    trafficDown: 0,
+    trafficUp: null,
+    trafficDown: null,
+    trafficBasis: "unavailable",
     peakUp: 0,
     peakUpAt: null,
     peakDown: 0,
@@ -56,6 +61,40 @@ function emptyStat(uuid: string): TodayTrafficStat {
     sampleCount: 0,
     hasSamples: false,
   };
+}
+
+export function formatTodayTrafficAmount(value: number | null): string {
+  return value == null ? "未知" : formatBytes(value);
+}
+
+export function todayTrafficTotal(stat: TodayTrafficStat): number | null {
+  if (stat.trafficUp == null || stat.trafficDown == null) return null;
+  const total = stat.trafficUp + stat.trafficDown;
+  return Number.isSafeInteger(total) ? total : null;
+}
+
+export function aggregateTodayTraffic(stats: TodayTrafficStat[]) {
+  const direction = (key: "trafficUp" | "trafficDown") => {
+    if (stats.length === 0 || stats.some((stat) => stat[key] == null)) return null;
+    const sum = stats.reduce((total, stat) => total + (stat[key] ?? 0), 0);
+    return Number.isSafeInteger(sum) ? sum : null;
+  };
+  const up = direction("trafficUp");
+  const down = direction("trafficDown");
+  const total = up == null || down == null ? null : up + down;
+  return { up, down, total: total != null && Number.isSafeInteger(total) ? total : null };
+}
+
+export function todayTrafficBasisLabel(stat: TodayTrafficStat): string {
+  switch (stat.trafficBasis) {
+    case "validated-intervals": return "已验证区间累计，可能不完整";
+    case "records-estimate": return "历史采样估算，可能不完整";
+    default: return "今日流量未知";
+  }
+}
+
+function trafficDirectionKey(client: string, metricKey: string) {
+  return client + "\u0000" + metricKey;
 }
 
 function validPoint(point: TrafficMetricSeries["points"][number]) {
@@ -68,10 +107,21 @@ export function summarizeTodayTrafficMetrics(
 ): TodayTrafficStat[] {
   const stats = new Map(uuids.map((uuid) => [uuid, emptyStat(uuid)] as const));
   const sampleTimes = new Map(uuids.map((uuid) => [uuid, new Set<number>()] as const));
+  const trafficDirections = new Map<string, Array<TrafficMetricSeries>>();
 
   for (const item of series) {
     const stat = stats.get(item.client);
     if (!stat) continue;
+    // The today number must stay unknown unless the backend answers each
+    // traffic direction with one validated interval stream, from its first to
+    // its last point: these are per-minute amounts, not cumulative counters.
+    if (item.metricKey === TRAFFIC_UP_METRIC || item.metricKey === TRAFFIC_DOWN_METRIC) {
+      const key = trafficDirectionKey(item.client, item.metricKey);
+      const existing = trafficDirections.get(key) ?? [];
+      existing.push(item);
+      trafficDirections.set(key, existing);
+      continue;
+    }
     for (const point of item.points) {
       if (!validPoint(point)) continue;
       const timeMs = Date.parse(point.time);
@@ -81,12 +131,6 @@ export function summarizeTodayTrafficMetrics(
       stat.hasSamples = true;
 
       switch (item.metricKey) {
-        case TRAFFIC_UP_METRIC:
-          stat.trafficUp += value;
-          break;
-        case TRAFFIC_DOWN_METRIC:
-          stat.trafficDown += value;
-          break;
         case RATE_UP_METRIC:
           if (value > stat.peakUp) {
             stat.peakUp = value;
@@ -104,6 +148,21 @@ export function summarizeTodayTrafficMetrics(
   }
 
   for (const [uuid, stat] of stats) {
+    for (const [metric, key] of [[TRAFFIC_UP_METRIC, "trafficUp"], [TRAFFIC_DOWN_METRIC, "trafficDown"]] as const) {
+      const items = trafficDirections.get(trafficDirectionKey(uuid, metric)) ?? [];
+      if (items.length !== 1 || items[0].semantics !== "interval_delta_v2") continue;
+      const points = items[0].points;
+      const valid = points.filter((point) => validPoint(point) && Number.isFinite(Date.parse(point.time)));
+      if (valid.length === 0 || valid.length !== points.length || valid.some((point) =>
+        !Number.isSafeInteger(point.value) || (point.value ?? -1) < 0,
+      )) continue;
+      const total = valid.reduce((sum, point) => sum + (point.value ?? 0), 0);
+      if (!Number.isSafeInteger(total)) continue;
+      stat[key] = total;
+      stat.trafficBasis = "validated-intervals";
+      stat.hasSamples = true;
+      for (const point of valid) sampleTimes.get(uuid)?.add(Date.parse(point.time));
+    }
     stat.sampleCount = sampleTimes.get(uuid)?.size ?? 0;
   }
   return [...stats.values()];
@@ -141,12 +200,6 @@ function recordTimeMs(record: LoadRecord) {
   return Date.parse(record.time);
 }
 
-function counterDelta(current: number, previous: number) {
-  if (!Number.isFinite(current) || current < 0) return 0;
-  if (!Number.isFinite(previous) || previous < 0) return 0;
-  return current >= previous ? current - previous : current;
-}
-
 export function summarizeTodayTrafficRecords(
   uuid: string,
   records: LoadRecord[],
@@ -159,20 +212,14 @@ export function summarizeTodayTrafficRecords(
     .filter(({ timeMs }) => Number.isFinite(timeMs) && timeMs <= endMs)
     .sort((left, right) => left.timeMs - right.timeMs);
 
-  let previous: LoadRecord | null = null;
   for (const item of sorted) {
     const { record, timeMs } = item;
-    if (timeMs < startMs) {
-      previous = record;
-      continue;
-    }
+    if (timeMs < startMs) continue;
 
     stat.hasSamples = true;
     stat.sampleCount += 1;
-    if (previous) {
-      stat.trafficUp += counterDelta(record.net_total_up, previous.net_total_up);
-      stat.trafficDown += counterDelta(record.net_total_down, previous.net_total_down);
-    }
+    // Legacy records do not prove whether these counters reset, wrapped or
+    // crossed midnight, so keep traffic unknown while retaining rate samples.
     const netOut = Number.isFinite(record.net_out) ? record.net_out : 0;
     const netIn = Number.isFinite(record.net_in) ? record.net_in : 0;
     if (netOut > stat.peakUp) {
@@ -183,7 +230,6 @@ export function summarizeTodayTrafficRecords(
       stat.peakDown = Math.max(0, netIn);
       stat.peakDownAt = timeMs;
     }
-    previous = record;
   }
 
   return stat;

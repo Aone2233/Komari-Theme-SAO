@@ -16,7 +16,8 @@ import {
   type NodeTodayTrafficView,
 } from "@/hooks/useTodayTrafficStats";
 import { useFineHover } from "@/hooks/useMediaQuery";
-import { formatBytes, formatByteRateLabel, formatClockTime } from "@/utils/format";
+import { formatByteRateLabel, formatClockTime } from "@/utils/format";
+import { formatTodayTrafficAmount, todayTrafficBasisLabel } from "@/utils/trafficStats";
 import {
   consumeTriggerFocusSuppression,
   INITIAL_NODE_TODAY_TRAFFIC_POPOVER_STATE,
@@ -316,12 +317,12 @@ function TodayTrafficPopoverBody({ traffic }: { traffic: NodeTodayTrafficView })
         <PopoverRow
           icon={<span className="node-traffic-icon is-up"><ArrowUp size={12} strokeWidth={2.4} /></span>}
           label="上行流量"
-          value={formatBytes(stat.trafficUp)}
+          value={formatTodayTrafficAmount(stat.trafficUp)}
         />
         <PopoverRow
           icon={<span className="node-traffic-icon is-down"><ArrowDown size={12} strokeWidth={2.4} /></span>}
           label="下行流量"
-          value={formatBytes(stat.trafficDown)}
+          value={formatTodayTrafficAmount(stat.trafficDown)}
         />
       </div>
       <div className="node-traffic-popover-head is-peak">
@@ -350,6 +351,7 @@ function TodayTrafficPopoverBody({ traffic }: { traffic: NodeTodayTrafficView })
         />
       </div>
       <div className="node-traffic-popover-foot">
+        <span>{todayTrafficBasisLabel(stat)}</span>
         <span>更新 {formatClockTime(dataUpdatedAt)}</span>
         <Link to="/traffic" className="node-traffic-popover-link">
           明细

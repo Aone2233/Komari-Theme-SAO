@@ -36,6 +36,7 @@ import { useHomeSort } from "@/hooks/useHomeSort";
 import { useHomeNodeOrder } from "@/hooks/useHomeNodeOrder";
 import { useHourlyClock, useMinuteClock } from "@/hooks/useClock";
 import { preloadAssetsPage } from "@/services/assetsPageLoader";
+import { aggregateTodayTraffic } from "@/utils/trafficStats";
 import {
   preloadTodayTrafficStats,
   TodayTrafficStatsProvider,
@@ -867,18 +868,9 @@ export function NodeGrid() {
   const todayTrafficQuery = useTodayTrafficStats(trafficUuids, todayTrafficClock, "summary");
   const latestTrafficTotal = useMemo(() => {
     if (!todayTrafficQuery.data) return null;
-    return todayTrafficQuery.data.rows.reduce(
-      (sum, row) => sum + row.trafficUp + row.trafficDown,
-      0,
-    );
+    return aggregateTodayTraffic(todayTrafficQuery.data.rows).total;
   }, [todayTrafficQuery.data]);
-  // 记忆锁定：一旦获取过有效数据，在用户未手动刷新页面的生命周期内永久记忆数值，
-  // 避免切出 APP 重新激活或后台静默刷新时因短暂 pending 退化为朦胧骨架屏
-  const lastTrafficTotalRef = useRef<number | null>(null);
-  if (latestTrafficTotal !== null) {
-    lastTrafficTotalRef.current = latestTrafficTotal;
-  }
-  const todayTrafficTotal = latestTrafficTotal ?? lastTrafficTotalRef.current;
+  const todayTrafficTotal = latestTrafficTotal;
   // 「名称」排序需要展示名(摘要无 name),从 meta 注入。
   const nameByUuid = useMemo(() => {
     const map = new Map<string, string>();

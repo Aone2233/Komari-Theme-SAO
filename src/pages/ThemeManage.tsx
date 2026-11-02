@@ -49,6 +49,7 @@ import { useHomeNodeSummaries } from "@/hooks/useNode";
 import { usePublicConfig } from "@/hooks/usePublicConfig";
 import { useHourlyClock, useMinuteClock } from "@/hooks/useClock";
 import { useTodayTrafficStats } from "@/hooks/useTodayTrafficStats";
+import { aggregateTodayTraffic } from "@/utils/trafficStats";
 import { useThemeUpdate } from "@/hooks/useThemeUpdate";
 import { usePreferences } from "@/hooks/usePreferences";
 import { queryClient } from "@/services/queryClient";
@@ -1714,16 +1715,9 @@ export function ThemeManage() {
   const todayTrafficQuery = useTodayTrafficStats(trafficUuids, todayTrafficClock, "summary");
   const latestTrafficTotal = useMemo(() => {
     if (!todayTrafficQuery.data) return null;
-    return todayTrafficQuery.data.rows.reduce(
-      (sum, row) => sum + row.trafficUp + row.trafficDown,
-      0,
-    );
+    return aggregateTodayTraffic(todayTrafficQuery.data.rows).total;
   }, [todayTrafficQuery.data]);
-  const lastTrafficTotalRef = useRef<number | null>(null);
-  if (latestTrafficTotal !== null) {
-    lastTrafficTotalRef.current = latestTrafficTotal;
-  }
-  const todayTrafficTotal = latestTrafficTotal ?? lastTrafficTotalRef.current;
+  const todayTrafficTotal = latestTrafficTotal;
 
   // 使用当前价格、周期、到期日和汇率回算指定收购日的剩余价值；结果只在用户编辑
   // 收购价/日期时用于固化溢价，不会因后续续费或汇率变化自动改写。

@@ -1,5 +1,5 @@
-import { formatByteRateLabel, formatBytes, formatClockTime } from "@/utils/format";
-import type { TodayTrafficStat } from "@/utils/trafficStats";
+import { formatByteRateLabel, formatClockTime } from "@/utils/format";
+import { formatTodayTrafficAmount, todayTrafficBasisLabel, type TodayTrafficStat } from "@/utils/trafficStats";
 
 export function formatTodayTrafficValue(
   stat: TodayTrafficStat | undefined,
@@ -10,10 +10,10 @@ export function formatTodayTrafficValue(
   if (pending && !stat) return "—";
   if (isError) {
     if (!stat || !stat.hasSamples) return "今日暂无采样（更新失败）";
-    return `↑ ${formatBytes(stat.trafficUp)} · ↓ ${formatBytes(stat.trafficDown)}（更新失败）`;
+    return `↑ ${formatTodayTrafficAmount(stat.trafficUp)} · ↓ ${formatTodayTrafficAmount(stat.trafficDown)}（${todayTrafficBasisLabel(stat)}；更新失败）`;
   }
   if (!stat || !stat.hasSamples) return "今日暂无采样";
-  return `↑ ${formatBytes(stat.trafficUp)} · ↓ ${formatBytes(stat.trafficDown)}`;
+  return `↑ ${formatTodayTrafficAmount(stat.trafficUp)} · ↓ ${formatTodayTrafficAmount(stat.trafficDown)}（${todayTrafficBasisLabel(stat)}）`;
 }
 
 export function formatTodayPeakValue(

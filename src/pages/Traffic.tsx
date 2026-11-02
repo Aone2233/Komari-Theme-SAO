@@ -7,9 +7,16 @@ import { useMinuteClock } from "@/hooks/useClock";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTodayTrafficStats } from "@/hooks/useTodayTrafficStats";
 import { useVisibleNodes } from "@/hooks/useVisibleNodes";
-import { formatByteRateLabel, formatBytes } from "@/utils/format";
+import { formatByteRateLabel } from "@/utils/format";
 import type { NodeInfo } from "@/types/komari";
-import type { TodayTrafficSample, TodayTrafficStat } from "@/utils/trafficStats";
+import {
+  aggregateTodayTraffic,
+  formatTodayTrafficAmount,
+  todayTrafficBasisLabel,
+  todayTrafficTotal,
+  type TodayTrafficSample,
+  type TodayTrafficStat,
+} from "@/utils/trafficStats";
 
 const DAY_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   month: "long",
@@ -33,7 +40,7 @@ const TrafficRateChart = lazy(() =>
 interface TrafficDetail {
   node: NodeInfo;
   stat: TodayTrafficStat;
-  total: number;
+  total: number | null;
 }
 
 function formatPeakTime(timeMs: number | null, value: number) {
@@ -142,8 +149,9 @@ export function Traffic() {
       .map((node) => {
         const stat = stats.get(node.uuid) ?? {
           uuid: node.uuid,
-          trafficUp: 0,
-          trafficDown: 0,
+          trafficUp: null,
+          trafficDown: null,
+          trafficBasis: "unavailable" as const,
           peakUp: 0,
           peakUpAt: null,
           peakDown: 0,
@@ -151,21 +159,22 @@ export function Traffic() {
           sampleCount: 0,
           hasSamples: false,
         };
-        return { node, stat, total: stat.trafficUp + stat.trafficDown };
+        return { node, stat, total: todayTrafficTotal(stat) };
       })
       .sort(
         (left, right) =>
           Number(right.stat.hasSamples) - Number(left.stat.hasSamples) ||
-          right.total - left.total ||
+          (right.total ?? -1) - (left.total ?? -1) ||
           left.node.weight - right.node.weight,
       );
   }, [nodes, trafficQuery.data?.rows]);
-  const { sampledDetails, totalUp, totalDown, peakUp, peakDown } = useMemo(() => {
+  const { totalUp, totalDown, totalTraffic, peakUp, peakDown } = useMemo(() => {
     const sampled = details.filter((detail) => detail.stat.hasSamples);
+    const totals = aggregateTodayTraffic(details.map((detail) => detail.stat));
     return {
-      sampledDetails: sampled,
-      totalUp: sampled.reduce((sum, detail) => sum + detail.stat.trafficUp, 0),
-      totalDown: sampled.reduce((sum, detail) => sum + detail.stat.trafficDown, 0),
+      totalUp: totals.up,
+      totalDown: totals.down,
+      totalTraffic: totals.total,
       peakUp: sampled.reduce<TrafficDetail | null>(
         (best, detail) => (!best || detail.stat.peakUp > best.stat.peakUp ? detail : best),
         null,
@@ -224,12 +233,13 @@ export function Traffic() {
                 <span>{DAY_FORMATTER.format(now)}</span>
               </div>
               <strong className="traffic-summary-total">
-                {sampledDetails.length > 0 ? formatBytes(totalUp + totalDown) : "—"}
+                {formatTodayTrafficAmount(totalTraffic)}
               </strong>
               <div className="traffic-summary-directions">
-                <span><ArrowUp size={13} aria-hidden />{formatBytes(totalUp)}</span>
-                <span><ArrowDown size={13} aria-hidden />{formatBytes(totalDown)}</span>
+                <span><ArrowUp size={13} aria-hidden />{formatTodayTrafficAmount(totalUp)}</span>
+                <span><ArrowDown size={13} aria-hidden />{formatTodayTrafficAmount(totalDown)}</span>
               </div>
+              <span className="traffic-sample-note">采样区间累计，可能不完整；非供应商账单</span>
             </article>
 
             <article className="traffic-summary-card">
@@ -285,8 +295,8 @@ export function Traffic() {
                         <td data-numeric data-strong>
                           {stat.hasSamples ? (
                             <span className="traffic-volume-value">
-                              <strong>{formatBytes(total)}</strong>
-                              <small>↑ {formatBytes(stat.trafficUp)} · ↓ {formatBytes(stat.trafficDown)}</small>
+                              <strong>{formatTodayTrafficAmount(total)}</strong>
+                              <small>↑ {formatTodayTrafficAmount(stat.trafficUp)} · ↓ {formatTodayTrafficAmount(stat.trafficDown)} · {todayTrafficBasisLabel(stat)}</small>
                             </span>
                           ) : (
                             <span className="traffic-no-data">无数据</span>
@@ -335,7 +345,7 @@ export function Traffic() {
                       <span>{node.name}</span>
                     </Link>
                     <div className="traffic-node-card-actions">
-                      <strong>{stat.hasSamples ? formatBytes(total) : "无数据"}</strong>
+                      <strong>{stat.hasSamples ? formatTodayTrafficAmount(total) : "无数据"}</strong>
                       <TrafficDetailToggle
                         expanded={expanded}
                         controlsId={detailId}
@@ -346,9 +356,10 @@ export function Traffic() {
                   {stat.hasSamples && (
                     <>
                       <div className="traffic-node-card-directions">
-                        <span>↑ {formatBytes(stat.trafficUp)}</span>
-                        <span>↓ {formatBytes(stat.trafficDown)}</span>
+                        <span>↑ {formatTodayTrafficAmount(stat.trafficUp)}</span>
+                        <span>↓ {formatTodayTrafficAmount(stat.trafficDown)}</span>
                       </div>
+                      <span className="traffic-sample-note">{todayTrafficBasisLabel(stat)}</span>
                       <dl className="traffic-node-card-peaks">
                         <div>
                           <dt>上行峰值</dt>
