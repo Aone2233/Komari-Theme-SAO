@@ -122,6 +122,7 @@ function CompactInfoTile({
       className="compact-node-info-tile"
       style={style}
       aria-label={label}
+      title={label}
     >
       <span className="compact-node-info-content">{children}</span>
     </div>
@@ -510,7 +511,7 @@ function CompactNodeInfoStrip({
       </CompactInfoTile>
       {showTrafficTotal && (
         <CompactInfoTile
-          label="累计流量"
+          label="开机累计流量"
           color="var(--text-primary)"
         >
           <CompactInfoRow
@@ -615,7 +616,7 @@ function CompactTrafficBar({
           <>
             <span className="compact-node-traffic-label">
               <Database size={12} strokeWidth={2.1} />
-              <span>流量</span>
+              <span>周期</span>
             </span>
             <div className="compact-node-gauge-track" aria-hidden />
             <span className="compact-node-traffic-uptime">{uptimeLabel}</span>
@@ -626,7 +627,7 @@ function CompactTrafficBar({
             <div className="compact-node-traffic-head">
               <span className="compact-node-traffic-label">
                 <Database size={12} strokeWidth={2.1} />
-                <span>流量</span>
+                <span>周期</span>
               </span>
               <span className="compact-node-traffic-value">{traffic.detail}</span>
             </div>

@@ -398,7 +398,7 @@ const NodeTrafficQuota = memo(function NodeTrafficQuota({
       <div className="traffic-quota-head">
         <span className="traffic-quota-label">
           <Database size={13} strokeWidth={2} />
-          <span>剩余流量</span>
+          <span>周期剩余</span>
           <strong className="traffic-quota-remain">{remainingLabel}</strong>
         </span>
         <span className="traffic-quota-usage">{detail}</span>
@@ -763,7 +763,7 @@ function TrafficStat({
       <div className="traffic-stat-foot">
         <div className="traffic-stat-total-label">
           <GlobeArrow direction={totalLabel} color={color} />
-          <span>{totalLabel}</span>
+          <span>{totalLabel}（开机）</span>
         </div>
         <span className="tabular">{total}</span>
       </div>

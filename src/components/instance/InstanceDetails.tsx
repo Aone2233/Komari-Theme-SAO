@@ -139,7 +139,7 @@ export function InstanceDetails({
             value={formatTodayPeakValue(todayStat, trafficQuery.isPending)}
           />
           <div className="instance-info-item is-stack">
-            <span className="instance-info-label" title="Agent 周期累计，可能与供应商账单不同">周期流量</span>
+            <span className="instance-info-label" title="Agent 周期累计，可能与供应商账单不同">Agent 周期流量</span>
             <div className="instance-info-traffic">
               <span className="instance-info-value">{`↑ ${metrics.cycleUp == null ? "未知" : formatBytes(metrics.cycleUp)} · ↓ ${metrics.cycleDown == null ? "未知" : formatBytes(metrics.cycleDown)}`}</span>
               <div
@@ -160,6 +160,7 @@ export function InstanceDetails({
                   ? `${formatBytes(trafficUsage.used)} / ∞`
                   : `${formatBytes(trafficUsage.used)} / ${formatBytes(trafficUsage.limit)}`}
               </span>
+              <span className="instance-info-note">非供应商账单{isOnline === false ? " · 离线为最后上报" : ""}</span>
             </div>
           </div>
         </div>

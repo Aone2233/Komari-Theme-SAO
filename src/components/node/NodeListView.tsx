@@ -362,7 +362,7 @@ const NodeRow = memo(function NodeRow({ uuid }: { uuid: string }) {
 
       <div
         className="node-list-cell col-traffic"
-        title={`${traffic.typeLabel} · 剩余 ${traffic.remainingLabel} · ${traffic.detail}`}
+        title={`上下行为开机累计 · ${traffic.typeLabel} · 周期剩余 ${traffic.remainingLabel} · ${traffic.detail}`}
       >
         <div className="node-list-traffic-rows">
           <StackLine icon={<ArrowUp size={11} strokeWidth={2.1} />} value={formatBytes(node.trafficUp)} />
